@@ -36,6 +36,9 @@ func main() {
 		WriteWait:       readDurationEnv("CONVERGE_WRITE_WAIT", 0),
 		PongWait:        readDurationEnv("CONVERGE_PONG_WAIT", 0),
 		PingPeriod:      readDurationEnv("CONVERGE_PING_PERIOD", 0),
+		JWTSecret:       os.Getenv("CONVERGE_JWT_SECRET"),
+		JWTIssuer:       os.Getenv("CONVERGE_JWT_ISSUER"),
+		JWTAudience:     os.Getenv("CONVERGE_JWT_AUDIENCE"),
 	}
 	hub := chat.NewHubWithOptions(store, options)
 	go hub.Run()

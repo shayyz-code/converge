@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 	"github.com/shayyz-code/converge/chat"
 )
@@ -31,24 +32,28 @@ type uiState struct {
 func main() {
 	server := flag.String("server", "ws://localhost:8080/ws", "")
 	room := flag.String("room", "lobby", "")
-	user := flag.String("user", "", "")
+	token := flag.String("token", "", "")
 	flag.Parse()
 
-	if *user == "" {
-		*user = "user-" + strconv.FormatInt(time.Now().UnixNano()%100000, 10)
+	if *token == "" {
+		fmt.Fprintln(os.Stderr, "token required")
+		os.Exit(1)
 	}
 
-	wsURL, err := buildWSURL(*server, *room, *user)
+	wsURL, err := buildWSURL(*server, *room)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer "+*token)
+
 	dialer := websocket.Dialer{
 		Proxy:            http.ProxyFromEnvironment,
 		HandshakeTimeout: 10 * time.Second,
 	}
-	conn, _, err := dialer.Dial(wsURL, nil)
+	conn, _, err := dialer.Dial(wsURL, headers)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -68,7 +73,7 @@ func main() {
 
 	state := &uiState{
 		room:      *room,
-		user:      *user,
+		user:      userIDFromToken(*token),
 		server:    wsURL,
 		connected: true,
 	}
@@ -115,7 +120,7 @@ func main() {
 	}
 }
 
-func buildWSURL(base, room, user string) (string, error) {
+func buildWSURL(base, room string) (string, error) {
 	parsed, err := url.Parse(base)
 	if err != nil {
 		return "", err
@@ -123,9 +128,6 @@ func buildWSURL(base, room, user string) (string, error) {
 	q := parsed.Query()
 	if room != "" {
 		q.Set("room", room)
-	}
-	if user != "" {
-		q.Set("user", user)
 	}
 	parsed.RawQuery = q.Encode()
 	return parsed.String(), nil
@@ -273,7 +275,7 @@ func formatMessage(msg chat.Message) string {
 	case "system":
 		return "[" + timestamp + "] * " + msg.Body
 	case "welcome":
-		return "[" + timestamp + "] connected as " + msg.User + " in " + msg.Room
+		return "[" + timestamp + "] connected as " + msg.UserID + " in " + msg.Room
 	case "rooms":
 		return "[" + timestamp + "] rooms: " + strings.Join(msg.Rooms, ", ")
 	case "users":
@@ -281,12 +283,31 @@ func formatMessage(msg chat.Message) string {
 	case "error":
 		return "[" + timestamp + "] error: " + msg.Body
 	default:
-		label := msg.User
+		label := msg.UserID
 		if label == "" {
 			label = msg.Room
 		}
 		return "[" + timestamp + "] " + label + ": " + msg.Body
 	}
+}
+
+func userIDFromToken(token string) string {
+	claims := jwt.MapClaims{}
+	_, _, err := new(jwt.Parser).ParseUnverified(token, claims)
+	if err != nil {
+		return "unknown"
+	}
+	if raw, ok := claims["user_id"]; ok {
+		if value, ok := raw.(string); ok && value != "" {
+			return value
+		}
+	}
+	if raw, ok := claims["sub"]; ok {
+		if value, ok := raw.(string); ok && value != "" {
+			return value
+		}
+	}
+	return "unknown"
 }
 
 func pushMessage(state *uiState, line string) {

@@ -6,7 +6,7 @@ type Message struct {
 	ID        string    `json:"id"`
 	Type      string    `json:"type"`
 	Room      string    `json:"room,omitempty"`
-	User      string    `json:"user,omitempty"`
+	UserID    string    `json:"user_id,omitempty"`
 	Body      string    `json:"body,omitempty"`
 	Rooms     []string  `json:"rooms,omitempty"`
 	Users     []string  `json:"users,omitempty"`

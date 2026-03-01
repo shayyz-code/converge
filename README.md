@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 
-Real-time websocket chat server with SQLite persistence and a built-in TUI client.
+Real-time websocket chat server with SQLite/Postgres persistence and a built-in TUI client.
 
 ## Features
 
@@ -20,13 +20,13 @@ Real-time websocket chat server with SQLite persistence and a built-in TUI clien
 ## Run the server
 
 ```bash
-CONVERGE_DB_PATH=converge.db go run ./cmd/server
+CONVERGE_DB_PATH=converge.db CONVERGE_JWT_SECRET=dev-secret go run ./cmd/server
 ```
 
 Postgres:
 
 ```bash
-CONVERGE_DB_ADAPTER=postgres CONVERGE_DB_DSN="postgres://user:pass@localhost:5432/converge?sslmode=disable" go run ./cmd/server
+CONVERGE_DB_ADAPTER=postgres CONVERGE_DB_DSN="postgres://user:pass@localhost:5432/converge?sslmode=disable" CONVERGE_JWT_SECRET=dev-secret go run ./cmd/server
 ```
 
 Health check:
@@ -38,13 +38,18 @@ curl http://localhost:8080/health
 Websocket URL:
 
 ```
-ws://localhost:8080/ws?room=lobby&user=alice
+ws://localhost:8080/ws?room=lobby
 ```
+
+Authentication:
+
+- Send `Authorization: Bearer <jwt>`
+- Token must include `user_id` or `sub`
 
 ## Run the TUI client
 
 ```bash
-go run ./cmd/client -server ws://localhost:8080/ws -room lobby -user shayy
+go run ./cmd/client -server ws://localhost:8080/ws -room lobby -token "$JWT_TOKEN"
 ```
 
 ### TUI commands
@@ -94,7 +99,12 @@ go run ./cmd/client -server ws://localhost:8080/ws -room lobby -user shayy
 - Welcome
 
 ```json
-{ "type": "welcome", "room": "lobby", "user": "shayy", "timestamp": "..." }
+{
+  "type": "welcome",
+  "room": "lobby",
+  "user_id": "user-123",
+  "timestamp": "..."
+}
 ```
 
 - System event
@@ -120,7 +130,7 @@ go run ./cmd/client -server ws://localhost:8080/ws -room lobby -user shayy
 {
   "type": "users",
   "room": "lobby",
-  "users": ["shayy", "hhh"],
+  "users": ["user-123", "user-456"],
   "timestamp": "..."
 }
 ```
@@ -160,6 +170,9 @@ go run ./cmd/client -server ws://localhost:8080/ws -room lobby -user shayy
 | CONVERGE_READ_TIMEOUT      | HTTP read timeout              | 10s               |
 | CONVERGE_WRITE_TIMEOUT     | HTTP write timeout             | 10s               |
 | CONVERGE_IDLE_TIMEOUT      | HTTP idle timeout              | 60s               |
+| CONVERGE_JWT_SECRET        | HMAC secret for JWT            | empty             |
+| CONVERGE_JWT_ISSUER        | JWT issuer                     | empty             |
+| CONVERGE_JWT_AUDIENCE      | JWT audience                   | empty             |
 
 ## Tests
 
@@ -176,7 +189,9 @@ if err != nil {
 }
 defer store.Close()
 
-hub := chat.NewHub(store)
+hub := chat.NewHubWithOptions(store, chat.Options{
+    JWTSecret: "dev-secret",
+})
 go hub.Run()
 
 http.HandleFunc("/ws", hub.HandleWS)
@@ -191,7 +206,9 @@ if err != nil {
 }
 defer store.Close()
 
-hub := chat.NewHub(store)
+hub := chat.NewHubWithOptions(store, chat.Options{
+    JWTSecret: "dev-secret",
+})
 go hub.Run()
 ```
 

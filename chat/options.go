@@ -15,6 +15,9 @@ type Options struct {
 	WriteWait       time.Duration
 	PongWait        time.Duration
 	PingPeriod      time.Duration
+	JWTSecret       string
+	JWTIssuer       string
+	JWTAudience     string
 }
 
 func normalizeOptions(opts Options) Options {
