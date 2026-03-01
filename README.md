@@ -163,7 +163,7 @@ go test ./...
 ## Contributors
 
 <a href="https://github.com/shayyz-code/converge/graphs/contributors">
-  <img src="https://contrib.rocks" />
+  <img src="https://contrib.rocks/image?repo=shayyz-code/converge" />
 </a>
 
 ## License
