@@ -2,7 +2,6 @@
 
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go&logoColor=white)](https://go.dev/)
-[![Go Report Card](https://goreportcard.com/badge/github.com/shayyz-code/converge)](https://goreportcard.com/report/github.com/shayyz-code/converge)
 
 Real-time websocket chat server with SQLite persistence and a built-in TUI client.
 
