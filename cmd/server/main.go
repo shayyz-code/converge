@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -14,12 +15,13 @@ import (
 )
 
 func main() {
-	dbPath := os.Getenv("CONVERGE_DB_PATH")
-	store, err := chat.NewSQLiteStore(dbPath)
+	store, closeStore, err := openStore()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer store.Close()
+	if closeStore != nil {
+		defer closeStore()
+	}
 
 	options := chat.Options{
 		AllowedOrigins:  splitCSV(os.Getenv("CONVERGE_ALLOWED_ORIGINS")),
@@ -68,6 +70,28 @@ func main() {
 	defer cancel()
 	hub.Close()
 	srv.Shutdown(shutdownCtx)
+}
+
+func openStore() (chat.Store, func() error, error) {
+	adapter := strings.ToLower(readEnv("CONVERGE_DB_ADAPTER", "sqlite"))
+	switch adapter {
+	case "postgres", "postgresql":
+		dsn := os.Getenv("CONVERGE_DB_DSN")
+		store, err := chat.NewPostgresStore(dsn)
+		if err != nil {
+			return nil, nil, err
+		}
+		return store, store.Close, nil
+	case "sqlite":
+		dbPath := os.Getenv("CONVERGE_DB_PATH")
+		store, err := chat.NewSQLiteStore(dbPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		return store, store.Close, nil
+	default:
+		return nil, nil, errors.New("unknown db adapter")
+	}
 }
 
 func readEnv(key, fallback string) string {

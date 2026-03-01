@@ -23,6 +23,12 @@ Real-time websocket chat server with SQLite persistence and a built-in TUI clien
 CONVERGE_DB_PATH=converge.db go run ./cmd/server
 ```
 
+Postgres:
+
+```bash
+CONVERGE_DB_ADAPTER=postgres CONVERGE_DB_DSN="postgres://user:pass@localhost:5432/converge?sslmode=disable" go run ./cmd/server
+```
+
 Health check:
 
 ```bash
@@ -136,7 +142,9 @@ go run ./cmd/client -server ws://localhost:8080/ws -room lobby -user shayy
 | Env Var                    | Description                    | Default           |
 | -------------------------- | ------------------------------ | ----------------- |
 | CONVERGE_ADDR              | HTTP listen address            | :8080             |
+| CONVERGE_DB_ADAPTER        | sqlite or postgres             | sqlite            |
 | CONVERGE_DB_PATH           | SQLite file path               | converge.db       |
+| CONVERGE_DB_DSN            | Postgres connection string     | empty             |
 | CONVERGE_ALLOWED_ORIGINS   | Comma-separated origins or `*` | empty (allow all) |
 | CONVERGE_MAX_MESSAGE_BYTES | Max websocket frame size       | 65536             |
 | CONVERGE_MAX_BODY_LENGTH   | Max chat message length        | 2000              |
@@ -157,6 +165,34 @@ go run ./cmd/client -server ws://localhost:8080/ws -room lobby -user shayy
 
 ```bash
 go test ./...
+```
+
+## Use as a package
+
+```go
+store, err := chat.NewSQLiteStore("converge.db")
+if err != nil {
+    panic(err)
+}
+defer store.Close()
+
+hub := chat.NewHub(store)
+go hub.Run()
+
+http.HandleFunc("/ws", hub.HandleWS)
+```
+
+Postgres adapter:
+
+```go
+store, err := chat.NewPostgresStore("postgres://user:pass@localhost:5432/converge?sslmode=disable")
+if err != nil {
+    panic(err)
+}
+defer store.Close()
+
+hub := chat.NewHub(store)
+go hub.Run()
 ```
 
 ## Contributors
