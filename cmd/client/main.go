@@ -73,7 +73,7 @@ func main() {
 
 	state := &uiState{
 		room:      *room,
-		user:      userIDFromToken(*token),
+		user:      userDisplayNameFromToken(*token),
 		server:    wsURL,
 		connected: true,
 	}
@@ -275,7 +275,11 @@ func formatMessage(msg chat.Message) string {
 	case "system":
 		return "[" + timestamp + "] * " + msg.Body
 	case "welcome":
-		return "[" + timestamp + "] connected as " + msg.UserID + " in " + msg.Room
+		name := msg.DisplayName
+		if name == "" {
+			name = msg.UserID
+		}
+		return "[" + timestamp + "] connected as " + name + " in " + msg.Room
 	case "rooms":
 		return "[" + timestamp + "] rooms: " + strings.Join(msg.Rooms, ", ")
 	case "users":
@@ -283,7 +287,10 @@ func formatMessage(msg chat.Message) string {
 	case "error":
 		return "[" + timestamp + "] error: " + msg.Body
 	default:
-		label := msg.UserID
+		label := msg.DisplayName
+		if label == "" {
+			label = msg.UserID
+		}
 		if label == "" {
 			label = msg.Room
 		}
@@ -291,11 +298,21 @@ func formatMessage(msg chat.Message) string {
 	}
 }
 
-func userIDFromToken(token string) string {
+func userDisplayNameFromToken(token string) string {
 	claims := jwt.MapClaims{}
 	_, _, err := new(jwt.Parser).ParseUnverified(token, claims)
 	if err != nil {
 		return "unknown"
+	}
+	if raw, ok := claims["display_name"]; ok {
+		if value, ok := raw.(string); ok && value != "" {
+			return value
+		}
+	}
+	if raw, ok := claims["name"]; ok {
+		if value, ok := raw.(string); ok && value != "" {
+			return value
+		}
 	}
 	if raw, ok := claims["user_id"]; ok {
 		if value, ok := raw.(string); ok && value != "" {

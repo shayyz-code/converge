@@ -37,11 +37,12 @@ func (s *PostgresStore) SaveMessage(ctx context.Context, msg Message) error {
 	ts := msg.Timestamp.UTC()
 	_, err := s.pool.Exec(
 		ctx,
-		"INSERT INTO messages (id, type, room, user_id, body, ts) VALUES ($1, $2, $3, $4, $5, $6)",
+		"INSERT INTO messages (id, type, room, user_id, display_name, body, ts) VALUES ($1, $2, $3, $4, $5, $6, $7)",
 		msg.ID,
 		msg.Type,
 		msg.Room,
 		msg.UserID,
+		msg.DisplayName,
 		msg.Body,
 		ts,
 	)
@@ -52,7 +53,7 @@ func (s *PostgresStore) ListMessages(ctx context.Context, room string, limit int
 	limit = clampLimit(limit, 50, 200)
 	rows, err := s.pool.Query(
 		ctx,
-		"SELECT id, type, room, user_id, body, ts FROM messages WHERE room = $1 ORDER BY ts DESC LIMIT $2",
+		"SELECT id, type, room, user_id, display_name, body, ts FROM messages WHERE room = $1 ORDER BY ts DESC LIMIT $2",
 		room,
 		limit,
 	)
@@ -65,7 +66,7 @@ func (s *PostgresStore) ListMessages(ctx context.Context, room string, limit int
 	for rows.Next() {
 		var msg Message
 		var ts time.Time
-		if err := rows.Scan(&msg.ID, &msg.Type, &msg.Room, &msg.UserID, &msg.Body, &ts); err != nil {
+		if err := rows.Scan(&msg.ID, &msg.Type, &msg.Room, &msg.UserID, &msg.DisplayName, &msg.Body, &ts); err != nil {
 			return nil, err
 		}
 		msg.Timestamp = ts
@@ -83,7 +84,7 @@ func (s *PostgresStore) ListMessages(ctx context.Context, room string, limit int
 func (s *PostgresStore) initSchema(ctx context.Context) error {
 	_, err := s.pool.Exec(
 		ctx,
-		"CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, type TEXT NOT NULL, room TEXT NOT NULL, user_id TEXT, body TEXT, ts TIMESTAMPTZ NOT NULL)",
+		"CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, type TEXT NOT NULL, room TEXT NOT NULL, user_id TEXT, display_name TEXT, body TEXT, ts TIMESTAMPTZ NOT NULL)",
 	)
 	if err != nil {
 		return err
@@ -95,7 +96,10 @@ func (s *PostgresStore) initSchema(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return s.migrateUserID(ctx)
+	if err := s.migrateUserID(ctx); err != nil {
+		return err
+	}
+	return s.migrateDisplayName(ctx)
 }
 
 func (s *PostgresStore) migrateUserID(ctx context.Context) error {
@@ -144,6 +148,41 @@ func (s *PostgresStore) migrateUserID(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (s *PostgresStore) migrateDisplayName(ctx context.Context) error {
+	rows, err := s.pool.Query(
+		ctx,
+		"SELECT column_name FROM information_schema.columns WHERE table_name = 'messages'",
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	hasDisplayName := false
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		if name == "display_name" {
+			hasDisplayName = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if !hasDisplayName {
+		if _, err := s.pool.Exec(ctx, "ALTER TABLE messages ADD COLUMN display_name TEXT"); err != nil {
+			return err
+		}
+	}
+	_, err = s.pool.Exec(ctx, "UPDATE messages SET display_name = user_id WHERE display_name IS NULL AND user_id IS NOT NULL")
+	if err != nil {
+		return err
 	}
 	return nil
 }

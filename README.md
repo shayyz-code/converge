@@ -45,6 +45,7 @@ Authentication:
 
 - Send `Authorization: Bearer <jwt>`
 - Token must include `user_id` or `sub`
+- Optional `display_name` or `name` for stored display name
 
 ## Run the TUI client
 
@@ -98,14 +99,9 @@ go run ./cmd/client -server ws://localhost:8080/ws -room lobby -token "$JWT_TOKE
 
 - Welcome
 
-```json
-{
+````json
+{ "type": "welcome", "room": "lobby", "user_id": "user-123", "display_name": "Alice", "timestamp": "..." }
   "type": "welcome",
-  "room": "lobby",
-  "user_id": "user-123",
-  "timestamp": "..."
-}
-```
 
 - System event
 
@@ -116,7 +112,7 @@ go run ./cmd/client -server ws://localhost:8080/ws -room lobby -token "$JWT_TOKE
   "body": "shayy joined",
   "timestamp": "..."
 }
-```
+````
 
 - Rooms list
 
@@ -138,7 +134,12 @@ go run ./cmd/client -server ws://localhost:8080/ws -room lobby -token "$JWT_TOKE
 - History
 
 ```json
-{"type":"history","room":"lobby","history":[...],"timestamp":"..."}
+{
+  "type": "history",
+  "room": "lobby",
+  "history": [{ "user_id": "user-123", "display_name": "Alice", "body": "hi" }],
+  "timestamp": "..."
+}
 ```
 
 - Error

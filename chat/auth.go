@@ -9,16 +9,18 @@ import (
 )
 
 type tokenClaims struct {
-	UserID string `json:"user_id"`
+	UserID      string `json:"user_id"`
+	DisplayName string `json:"display_name"`
+	Name        string `json:"name"`
 	jwt.RegisteredClaims
 }
 
-func (h *Hub) authenticateToken(token string) (string, error) {
+func (h *Hub) authenticateToken(token string) (string, string, error) {
 	if h.options.JWTSecret == "" {
-		return "", errors.New("jwt secret not configured")
+		return "", "", errors.New("jwt secret not configured")
 	}
 	if token == "" {
-		return "", errors.New("jwt token missing")
+		return "", "", errors.New("jwt token missing")
 	}
 	claims := &tokenClaims{}
 	parsed, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
@@ -28,22 +30,29 @@ func (h *Hub) authenticateToken(token string) (string, error) {
 		return []byte(h.options.JWTSecret), nil
 	})
 	if err != nil || !parsed.Valid {
-		return "", errors.New("invalid jwt")
+		return "", "", errors.New("invalid jwt")
 	}
 	if h.options.JWTIssuer != "" && claims.Issuer != h.options.JWTIssuer {
-		return "", errors.New("invalid issuer")
+		return "", "", errors.New("invalid issuer")
 	}
 	if h.options.JWTAudience != "" && !audienceContains(claims.Audience, h.options.JWTAudience) {
-		return "", errors.New("invalid audience")
+		return "", "", errors.New("invalid audience")
 	}
 	userID := claims.UserID
 	if userID == "" {
 		userID = claims.Subject
 	}
 	if userID == "" {
-		return "", errors.New("user id missing")
+		return "", "", errors.New("user id missing")
 	}
-	return userID, nil
+	displayName := strings.TrimSpace(claims.DisplayName)
+	if displayName == "" {
+		displayName = strings.TrimSpace(claims.Name)
+	}
+	if displayName == "" {
+		displayName = userID
+	}
+	return userID, displayName, nil
 }
 
 func extractToken(r *http.Request) string {

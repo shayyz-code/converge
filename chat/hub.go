@@ -90,17 +90,18 @@ func (h *Hub) Run() {
 			}
 			h.rooms[room][client] = true
 			h.sendToClient(client, Message{
-				ID:        uuid.NewString(),
-				Type:      "welcome",
-				Room:      room,
-				UserID:    client.userID,
-				Timestamp: time.Now().UTC(),
+				ID:          uuid.NewString(),
+				Type:        "welcome",
+				Room:        room,
+				UserID:      client.userID,
+				DisplayName: client.displayName,
+				Timestamp:   time.Now().UTC(),
 			})
 			h.broadcast <- Message{
 				ID:        uuid.NewString(),
 				Type:      "system",
 				Room:      room,
-				Body:      client.userID + " joined",
+				Body:      client.displayName + " joined",
 				Timestamp: time.Now().UTC(),
 			}
 		case client := <-h.unregister:
@@ -116,7 +117,7 @@ func (h *Hub) Run() {
 				ID:        uuid.NewString(),
 				Type:      "system",
 				Room:      room,
-				Body:      client.userID + " left",
+				Body:      client.displayName + " left",
 				Timestamp: time.Now().UTC(),
 			}
 		case move := <-h.move:
@@ -142,14 +143,14 @@ func (h *Hub) Run() {
 				ID:        uuid.NewString(),
 				Type:      "system",
 				Room:      oldRoom,
-				Body:      move.client.userID + " left",
+				Body:      move.client.displayName + " left",
 				Timestamp: time.Now().UTC(),
 			}
 			h.broadcast <- Message{
 				ID:        uuid.NewString(),
 				Type:      "system",
 				Room:      move.toRoom,
-				Body:      move.client.userID + " joined",
+				Body:      move.client.displayName + " joined",
 				Timestamp: time.Now().UTC(),
 			}
 		case msg := <-h.broadcast:

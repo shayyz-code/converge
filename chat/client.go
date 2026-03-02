@@ -11,11 +11,12 @@ import (
 )
 
 type Client struct {
-	hub    *Hub
-	conn   *websocket.Conn
-	send   chan Message
-	room   string
-	userID string
+	hub         *Hub
+	conn        *websocket.Conn
+	send        chan Message
+	room        string
+	userID      string
+	displayName string
 }
 
 func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
@@ -35,23 +36,24 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 		room = "lobby"
 	}
 	token := extractToken(r)
-	userID, err := h.authenticateToken(token)
+	userID, displayName, err := h.authenticateToken(token)
 	if err != nil {
 		conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "unauthorized"))
 		conn.Close()
 		return
 	}
-	if len(room) > h.options.MaxRoomLength || len(userID) > h.options.MaxUserLength {
+	if len(room) > h.options.MaxRoomLength || len(userID) > h.options.MaxUserLength || len(displayName) > h.options.MaxUserLength {
 		conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "invalid room or user"))
 		conn.Close()
 		return
 	}
 	client := &Client{
-		hub:    h,
-		conn:   conn,
-		send:   make(chan Message, h.options.SendBuffer),
-		room:   room,
-		userID: userID,
+		hub:         h,
+		conn:        conn,
+		send:        make(chan Message, h.options.SendBuffer),
+		room:        room,
+		userID:      userID,
+		displayName: displayName,
 	}
 	h.register <- client
 	go client.writePump()
@@ -139,12 +141,13 @@ func (c *Client) readPump() {
 			}
 			room := c.room
 			out := Message{
-				ID:        uuid.NewString(),
-				Type:      "message",
-				Room:      room,
-				UserID:    c.userID,
-				Body:      incoming.Body,
-				Timestamp: time.Now().UTC(),
+				ID:          uuid.NewString(),
+				Type:        "message",
+				Room:        room,
+				UserID:      c.userID,
+				DisplayName: c.displayName,
+				Body:        incoming.Body,
+				Timestamp:   time.Now().UTC(),
 			}
 			c.hub.broadcast <- out
 		}
