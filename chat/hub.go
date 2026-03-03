@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shayyz-code/converge/chat/crdt"
 )
 
 type roomMove struct {
@@ -35,6 +36,19 @@ type Hub struct {
 	allowedOrigins    map[string]bool
 	allowAllOrigins   bool
 	shutdownRequested chan struct{}
+	crdtOps           chan crdtOp
+	crdtOrSets        map[string]*crdt.ORSet[string]
+	crdtLWW           map[string]crdt.LWWRegister[string]
+}
+
+type crdtOp struct {
+	kind   string
+	action string
+	room   string
+	doc    string
+	value  string
+	node   string
+	client *Client
 }
 
 func NewHub(store Store) *Hub {
@@ -66,6 +80,9 @@ func NewHubWithOptions(store Store, options Options) *Hub {
 		allowedOrigins:    allowedOrigins,
 		allowAllOrigins:   allowAll,
 		shutdownRequested: make(chan struct{}),
+		crdtOps:           make(chan crdtOp, 128),
+		crdtOrSets:        make(map[string]*crdt.ORSet[string]),
+		crdtLWW:           make(map[string]crdt.LWWRegister[string]),
 	}
 }
 
@@ -204,6 +221,83 @@ func (h *Hub) Run() {
 				Room:      room,
 				Users:     users,
 				Timestamp: time.Now().UTC(),
+			}
+		case op := <-h.crdtOps:
+			switch op.kind {
+			case "orset":
+				key := op.room + ":" + op.doc
+				set := h.crdtOrSets[key]
+				if set == nil {
+					set = crdt.NewORSet[string](op.node)
+					h.crdtOrSets[key] = set
+				}
+				switch op.action {
+				case "add":
+					set.Add(op.value)
+					h.broadcast <- Message{
+						ID:          uuid.NewString(),
+						Type:        "crdt_orset_added",
+						Room:        op.room,
+						Doc:         op.doc,
+						UserID:      op.node,
+						DisplayName: op.client.displayName,
+						Body:        op.value,
+						Timestamp:   time.Now().UTC(),
+					}
+				case "remove":
+					set.Remove(op.value)
+					h.broadcast <- Message{
+						ID:          uuid.NewString(),
+						Type:        "crdt_orset_removed",
+						Room:        op.room,
+						Doc:         op.doc,
+						UserID:      op.node,
+						DisplayName: op.client.displayName,
+						Body:        op.value,
+						Timestamp:   time.Now().UTC(),
+					}
+				case "values":
+					items := set.Values()
+					op.client.send <- Message{
+						ID:        uuid.NewString(),
+						Type:      "crdt_orset_values",
+						Room:      op.room,
+						Doc:       op.doc,
+						Items:     items,
+						Timestamp: time.Now().UTC(),
+					}
+				}
+			case "lww":
+				key := op.room + ":" + op.doc
+				reg := h.crdtLWW[key]
+				switch op.action {
+				case "set":
+					if reg.Node == "" && reg.Timestamp.IsZero() {
+						reg = crdt.NewLWWRegister(op.value, time.Now().UTC(), op.node)
+					} else {
+						reg.Set(op.value, time.Now().UTC(), op.node)
+					}
+					h.crdtLWW[key] = reg
+					h.broadcast <- Message{
+						ID:          uuid.NewString(),
+						Type:        "crdt_lww_set",
+						Room:        op.room,
+						Doc:         op.doc,
+						UserID:      op.node,
+						DisplayName: op.client.displayName,
+						Body:        reg.Value,
+						Timestamp:   time.Now().UTC(),
+					}
+				case "get":
+					op.client.send <- Message{
+						ID:        uuid.NewString(),
+						Type:      "crdt_lww_value",
+						Room:      op.room,
+						Doc:       op.doc,
+						Body:      reg.Value,
+						Timestamp: time.Now().UTC(),
+					}
+				}
 			}
 		}
 	}

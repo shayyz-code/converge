@@ -76,6 +76,82 @@ func (c *Client) readPump() {
 		if err := c.conn.ReadJSON(&incoming); err != nil {
 			break
 		}
+		// CRDT operations
+		switch incoming.Type {
+		case "crdt_orset_add":
+			doc := incoming.Doc
+			if doc == "" {
+				doc = "default"
+			}
+			c.hub.crdtOps <- crdtOp{
+				kind:   "orset",
+				action: "add",
+				room:   c.room,
+				doc:    doc,
+				value:  incoming.Body,
+				node:   c.userID,
+				client: c,
+			}
+			continue
+		case "crdt_orset_remove":
+			doc := incoming.Doc
+			if doc == "" {
+				doc = "default"
+			}
+			c.hub.crdtOps <- crdtOp{
+				kind:   "orset",
+				action: "remove",
+				room:   c.room,
+				doc:    doc,
+				value:  incoming.Body,
+				node:   c.userID,
+				client: c,
+			}
+			continue
+		case "crdt_orset_values":
+			doc := incoming.Doc
+			if doc == "" {
+				doc = "default"
+			}
+			c.hub.crdtOps <- crdtOp{
+				kind:   "orset",
+				action: "values",
+				room:   c.room,
+				doc:    doc,
+				node:   c.userID,
+				client: c,
+			}
+			continue
+		case "crdt_lww_set":
+			doc := incoming.Doc
+			if doc == "" {
+				doc = "default"
+			}
+			c.hub.crdtOps <- crdtOp{
+				kind:   "lww",
+				action: "set",
+				room:   c.room,
+				doc:    doc,
+				value:  incoming.Body,
+				node:   c.userID,
+				client: c,
+			}
+			continue
+		case "crdt_lww_get":
+			doc := incoming.Doc
+			if doc == "" {
+				doc = "default"
+			}
+			c.hub.crdtOps <- crdtOp{
+				kind:   "lww",
+				action: "get",
+				room:   c.room,
+				doc:    doc,
+				node:   c.userID,
+				client: c,
+			}
+			continue
+		}
 		if incoming.Body != "" && len(incoming.Body) > c.hub.options.MaxBodyLength {
 			c.send <- Message{
 				ID:        uuid.NewString(),

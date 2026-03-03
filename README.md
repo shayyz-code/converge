@@ -11,6 +11,7 @@ Real-time websocket chat server with SQLite/Postgres persistence and a built-in 
 - Message persistence in SQLite with history retrieval
 - Room and user listing
 - Configurable limits and timeouts
+- CRDT utilities (OR-Set, LWW register)
 - TUI client for local testing and demos
 
 ## Requirements
@@ -60,6 +61,27 @@ go run ./cmd/client -server ws://localhost:8080/ws -room lobby -token "$JWT_TOKE
 - `/users [room]`
 - `/history [limit]`
 - `/quit`
+
+### CRDT over WebSocket
+
+- OR-Set add
+
+```json
+{ "type": "crdt_orset_add", "room": "lobby", "doc": "tags", "body": "alpha" }
+```
+
+- OR-Set values
+
+```json
+{ "type": "crdt_orset_values", "room": "lobby", "doc": "tags" }
+```
+
+- LWW set/get
+
+```json
+{ "type": "crdt_lww_set", "room": "lobby", "doc": "topic", "body": "Hello" }
+{ "type": "crdt_lww_get", "room": "lobby", "doc": "topic" }
+```
 
 ## Protocol
 
@@ -211,6 +233,21 @@ hub := chat.NewHubWithOptions(store, chat.Options{
     JWTSecret: "dev-secret",
 })
 go hub.Run()
+```
+
+### CRDT
+
+```go
+setA := crdt.NewORSet[string]("node-a")
+setA.Add("alpha")
+
+setB := crdt.NewORSet[string]("node-b")
+setB.Add("beta")
+
+setA.Merge(setB)
+
+reg := crdt.NewLWWRegister("hello", time.Now().UTC(), "node-a")
+reg.Set("world", time.Now().UTC(), "node-b")
 ```
 
 ## Contributors
