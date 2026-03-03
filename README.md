@@ -282,8 +282,8 @@ reg.Set("world", time.Now().UTC(), "node-b")
 
 ## Contributing
 
-- Read [CONTRIBUTING.md](file:///Users/yahs/Documents/projects/converge/CONTRIBUTING.md) for setup and PR guidelines
-- See [CODE_OF_CONDUCT.md](file:///Users/yahs/Documents/projects/converge/CODE_OF_CONDUCT.md) for community standards
+- Read [CONTRIBUTING.md](./CONTRIBUTING.md) for setup and PR guidelines
+- See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for community standards
 
 ## License
 
