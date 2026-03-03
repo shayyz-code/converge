@@ -24,6 +24,11 @@ Real-time websocket chat server with SQLite/Postgres persistence and a built-in 
 CONVERGE_DB_PATH=converge.db CONVERGE_JWT_SECRET=dev-secret go run ./cmd/server
 ```
 
+By default, the server listens on `0.0.0.0:8080`. You can change this using `PORT`, `CONVERGE_HOST`, or `CONVERGE_ADDR`.
+
+On startup, the server will log its local network IP, making it easy to connect from other devices:
+`2026/03/04 00:58:05 Network access: http://192.168.1.5:8080`
+
 Postgres:
 
 ```bash
@@ -33,13 +38,30 @@ CONVERGE_DB_ADAPTER=postgres CONVERGE_DB_DSN="postgres://user:pass@localhost:543
 Health check:
 
 ```bash
-curl http://localhost:8080/health
+curl http://<server-ip>:8080/health
 ```
 
 Websocket URL:
 
 ```
-ws://localhost:8080/ws?room=lobby
+ws://<server-ip>:8080/ws?room=lobby
+```
+
+## Quick Start Scripts
+
+For convenience, you can use the provided scripts in the `scripts/` directory:
+
+- **Start Server**: `./scripts/start_server.sh`
+- **Demo Client**: `./scripts/demo_client.sh [user_id] [display_name] [server_url]`
+
+Example:
+
+```bash
+# In one terminal
+./scripts/start_server.sh
+
+# In another terminal
+./scripts/demo_client.sh alice "Alice" ws://192.168.1.5:8080/ws
 ```
 
 Authentication:
@@ -174,7 +196,9 @@ go run ./cmd/client -server ws://localhost:8080/ws -room lobby -token "$JWT_TOKE
 
 | Env Var                    | Description                    | Default           |
 | -------------------------- | ------------------------------ | ----------------- |
-| CONVERGE_ADDR              | HTTP listen address            | :8080             |
+| PORT                       | HTTP listen port               | 8080              |
+| CONVERGE_HOST              | HTTP listen host               | 0.0.0.0           |
+| CONVERGE_ADDR              | Full listen address (override) | empty             |
 | CONVERGE_DB_ADAPTER        | sqlite or postgres             | sqlite            |
 | CONVERGE_DB_PATH           | SQLite file path               | converge.db       |
 | CONVERGE_DB_DSN            | Postgres connection string     | empty             |

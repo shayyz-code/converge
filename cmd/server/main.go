@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -50,7 +51,13 @@ func main() {
 		w.Write([]byte("ok"))
 	})
 
-	addr := readEnv("CONVERGE_ADDR", ":8080")
+	host := readEnv("CONVERGE_HOST", "0.0.0.0")
+	port := readEnv("PORT", "8080")
+	addr := host + ":" + port
+	if envAddr := os.Getenv("CONVERGE_ADDR"); envAddr != "" {
+		addr = envAddr
+	}
+
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      mux,
@@ -61,6 +68,13 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
+
+	log.Printf("Starting server on %s", addr)
+	if host == "0.0.0.0" {
+		if ip := getLocalIP(); ip != "" {
+			log.Printf("Network access: http://%s:%s", ip, port)
+		}
+	}
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -73,6 +87,21 @@ func main() {
 	defer cancel()
 	hub.Close()
 	srv.Shutdown(shutdownCtx)
+}
+
+func getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
 }
 
 func openStore() (chat.Store, func() error, error) {

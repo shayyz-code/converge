@@ -9,8 +9,9 @@ Thank you for your interest in contributing! This project welcomes issues, PRs, 
 3. Install deps: `go mod tidy`
 4. Run server (SQLite):
    - `CONVERGE_DB_PATH=converge.db CONVERGE_JWT_SECRET=dev-secret go run ./cmd/server`
+   - By default, the server listens on `0.0.0.0:8080`.
 5. Run TUI client:
-   - `go run ./cmd/client -server ws://localhost:8080/ws -room lobby -token "$JWT_TOKEN"`
+   - `go run ./cmd/client -server ws://<server-ip>:8080/ws -room lobby -token "$JWT_TOKEN"`
 
 Postgres:
 - `CONVERGE_DB_ADAPTER=postgres CONVERGE_DB_DSN="postgres://user:pass@localhost:5432/converge?sslmode=disable" CONVERGE_JWT_SECRET=dev-secret go run ./cmd/server`
